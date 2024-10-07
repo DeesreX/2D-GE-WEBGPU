@@ -1,4 +1,5 @@
 
+// WebGPU Setup Code
 export async function initializeWebGPU() {
     if (!navigator.gpu) {
         console.error("WebGPU is not supported on this browser.");
