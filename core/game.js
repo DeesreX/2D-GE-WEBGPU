@@ -40,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
             render();
         }
     });
+
+    setupCanvasClickHandler(canvas);
 });
 
 export function setupInputHandling() {
@@ -52,6 +54,28 @@ export function addObject(type) {
     const y = Math.floor(Math.random() * 15);
     gameState.objects.push({ type, x, y });
     console.log(`Added ${type} at (${x}, ${y})`);
+}
+
+function setupCanvasClickHandler(canvas) {
+    canvas.addEventListener('click', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((event.clientX - rect.left) / (canvas.width / gameState.tileMap[0].length));
+        const y = Math.floor((event.clientY - rect.top) / (canvas.height / gameState.tileMap.length));
+
+        if (x >= 0 && y >= 0 && y < gameState.tileMap.length && x < gameState.tileMap[0].length) {
+            const tileType = gameState.tileMap[y][x];
+            updateInspector(tileType, x, y);
+        }
+    });
+}
+
+function updateInspector(tileType, x, y) {
+    const inspectorDetails = document.getElementById('inspectorDetails');
+    inspectorDetails.innerHTML = `
+        <p><strong>Tile Properties:</strong></p>
+        <p>Type: ${tileType === 1 ? 'Wall' : 'Floor'}</p>
+        <p>Coordinates: (${x}, ${y})</p>
+    `;
 }
 
 function render() {

@@ -2,6 +2,7 @@
 import { initializeWebGPU, createTilePipeline } from './webgpu/webgpu-setup.js';
 import { initializeTileMap, setupInputHandling, gameState, updateCanvasSize } from './core/game.js';
 
+document.body.style.zoom = "90%";
 
 const CONSTANTS = Object.freeze({
     CANVAS: {
