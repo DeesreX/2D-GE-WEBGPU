@@ -4,13 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2D Game Engine with Multiple Views</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style/style.css">
 </head>
 <body>
     <div class="game-container">
-        <div class="canvas-container">
-            <canvas id="gameCanvas"></canvas>
-        </div>
+        <header class="toolbar">
+            <button id="newProjectButton">New Project</button>
+            <button id="saveButton">Save</button>
+            <button id="loadButton">Load</button>
+            <button id="settingsButton">Settings</button>
+        </header>
+        <aside class="sidebar">
+            <h3>Assets</h3>
+            <ul>
+                <li>Sprites</li>
+                <li>Tiles</li>
+                <li>Audio</li>
+                <li>Scripts</li>
+            </ul>
+            <h3>Inspector</h3>
+            <div class="inspector-panel">
+                <!-- Inspector details go here -->
+            </div>
+        </aside>
+        <main class="main-content">
+            <div class="canvas-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </main>
+        <footer class="status-bar">
+            <span id="coordinates">X: 0, Y: 0</span>
+            <span id="fps">FPS: 60</span>
+        </footer>
+    </div>
     <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -1,5 +1,8 @@
-import { initializeWebGPU, createTilePipeline } from './webgpu-setup.js';
-import { initializeTileMap, setupInputHandling, gameState } from './game.js';
+import { initializeWebGPU, createTilePipeline } from './webgpu/webgpu-setup.js';
+import { initializeTileMap, setupInputHandling, gameState } from './core/game.js';
+// Force zoom level to 90%
+
+document.body.style.zoom = "90%";
 
 // Constants using Object.freeze for immutability
 const CONSTANTS = Object.freeze({
@@ -8,10 +11,10 @@ const CONSTANTS = Object.freeze({
         HEIGHT: window.innerHeight
     },
     COLORS: {
-        DEFAULT_TILE: Object.freeze({ r: 0.8, g: 0.9, b: 0.8, a: 1.0 }),
-        WALL_TILE: Object.freeze({ r: 0.3, g: 0.3, b: 0.3, a: 1.0 }),
-        OBJECT: Object.freeze({ r: 0.5, g: 0.2, b: 0.7, a: 1.0 }),
-        BACKGROUND: Object.freeze({ r: 0.15, g: 0.15, b: 0.15, a: 1.0 })
+        DEFAULT_TILE: Object.freeze({ r: 0.7, g: 0.8, b: 0.7, a: 1.0 }),
+        WALL_TILE: Object.freeze({ r: 0.2, g: 0.2, b: 0.2, a: 1.0 }),
+        OBJECT: Object.freeze({ r: 0.4, g: 0.1, b: 0.5, a: 1.0 }),
+        BACKGROUND: Object.freeze({ r: 0.1, g: 0.1, b: 0.1, a: 1.0 })
     },
     OBJECTS: ["Tree", "Rock", "House", "NPC"]
 });
@@ -21,9 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('gameCanvas');
     canvas.width = CONSTANTS.CANVAS.WIDTH;
     canvas.height = CONSTANTS.CANVAS.HEIGHT;
-    canvas.style.width = '100vw'; // Make canvas cover whole viewport width
-    canvas.style.height = '100vh'; // Make canvas cover whole viewport height
-    canvas.style.display = 'block'; // Remove default margins from inline elements
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
 
     // Initialize WebGPU
     const { device, context, format } = await initializeWebGPU();
@@ -34,29 +36,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Create draggable objects dynamically from CONSTANTS.OBJECTS
+    const sidebar = document.querySelector('.sidebar');
+    const objectContainer = document.createElement('div');
+    objectContainer.className = 'object-container';
+    sidebar.appendChild(objectContainer);
     CONSTANTS.OBJECTS.forEach(objName => {
         const objectItem = document.createElement('div');
         objectItem.className = 'object';
         objectItem.innerText = objName;
         objectItem.setAttribute('draggable', true);
-        objectItem.style.position = 'absolute';
-        objectItem.style.top = '10px';
-        objectItem.style.left = `${20 + CONSTANTS.OBJECTS.indexOf(objName) * 60}px`;
-        objectItem.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-        objectItem.style.padding = '5px';
-        objectItem.style.cursor = 'grab';
         objectItem.addEventListener('dragstart', (event) => {
             event.dataTransfer.setData('text/plain', objName);
         });
-        document.body.appendChild(objectItem);
+        objectContainer.appendChild(objectItem);
     });
 
     // Set up dragover and drop events for the canvas
     const hoverIndicator = document.createElement('div');
-    hoverIndicator.style.position = 'absolute';
-    hoverIndicator.style.border = '2px dashed rgba(255, 255, 255, 0.7)';
-    hoverIndicator.style.pointerEvents = 'none';
-    hoverIndicator.style.display = 'none';
+    hoverIndicator.id = 'hoverIndicator';
     document.body.appendChild(hoverIndicator);
 
     canvas.addEventListener('dragover', (event) => {
@@ -119,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         gameState.objects.push(newObject);
         
         // Trigger a render update
-        render(device, context, format);
+        render(device, context, format, canvas);
     });
 });
 
@@ -130,7 +127,7 @@ async function gameLoop(device, context, format, timestamp) {
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
     update(deltaTime);
-    render(device, context, format);
+    render(device, context, format, document.getElementById('gameCanvas'));
     requestAnimationFrame((t) => gameLoop(device, context, format, t));
 }
 
@@ -146,7 +143,7 @@ function update(deltaTime) {
     player.y = Math.max(0, Math.min(canvas.height - tileSize, player.y));
 }
 
-function render(device, context, format) {
+function render(device, context, format, canvas) {
     const encoder = device.createCommandEncoder();
     const textureView = context.getCurrentTexture().createView();
     const renderPassDescriptor = {
@@ -159,14 +156,12 @@ function render(device, context, format) {
     };
 
     const passEncoder = encoder.beginRenderPass(renderPassDescriptor);
-    const canvas = document.getElementById("gameCanvas");
     const mapWidth = gameState.tileMap[0].length;
     const mapHeight = gameState.tileMap.length;
     tileSize = Math.min(canvas.width / mapWidth, canvas.height / mapHeight);
 
     renderTiles(passEncoder, device);
     renderObjects(passEncoder, device);
-
     passEncoder.end();
     device.queue.submit([encoder.finish()]);
 }
