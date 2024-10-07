@@ -19,16 +19,16 @@ export function render(device, context, format) {
 
     const passEncoder = encoder.beginRenderPass(renderPassDescriptor);
     const canvas = document.getElementById("gameCanvas");
-    const { length: mapWidth } = gameState.tileMap[0];
-    const { length: mapHeight } = gameState.tileMap;
+    const mapWidth = gameState.tileMap[0].length;
+    const mapHeight = gameState.tileMap.length;
     
     const aspectRatio = mapWidth / mapHeight;
     const availableWidth = canvas.clientWidth;
     const availableHeight = canvas.clientHeight;
     
     tileSize = availableWidth / availableHeight > aspectRatio
-        ? Math.round(availableHeight / mapHeight)
-        : Math.round(availableWidth / mapWidth);
+        ? Math.floor(availableHeight / mapHeight)
+        : Math.floor(availableWidth / mapWidth);
 
     canvas.width = tileSize * mapWidth;
     canvas.height = tileSize * mapHeight;
@@ -43,16 +43,19 @@ export function render(device, context, format) {
 function renderTiles(passEncoder, device) {
     gameState.tileMap.forEach((row, y) => {
         row.forEach((tile, x) => {
-            const tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE : CONSTANTS.COLORS.DEFAULT_TILE;
+            let tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE : CONSTANTS.COLORS.DEFAULT_TILE;
+            if (gameState.hoverTile && gameState.hoverTile.x === x && gameState.hoverTile.y === y) {
+                tileColor = CONSTANTS.COLORS.HOVER_TILE;
+            }
             passEncoder.setPipeline(createTilePipeline(device, tileColor));
-            passEncoder.setViewport(Math.round(x * tileSize), Math.round(y * tileSize), Math.round(tileSize), Math.round(tileSize), 0, 1);
+            passEncoder.setViewport(x * tileSize, y * tileSize, tileSize, tileSize, 0, 1);
             passEncoder.draw(6, 1, 0, 0);
         });
     });
 }
 
 function renderObjects(passEncoder, device) {
-    gameState.objects.forEach(({ type, x, y }) => {
+    gameState.objects.forEach(({ x, y }) => {
         const objColor = CONSTANTS.COLORS.OBJECT;
         passEncoder.setPipeline(createTilePipeline(device, objColor));
         passEncoder.setViewport(x * tileSize, y * tileSize, tileSize, tileSize, 0, 1);
@@ -62,21 +65,21 @@ function renderObjects(passEncoder, device) {
 
 window.addEventListener('resize', () => {
     const canvas = document.getElementById("gameCanvas");
-    const { length: mapWidth } = gameState.tileMap[0];
-    const { length: mapHeight } = gameState.tileMap;
+    const mapWidth = gameState.tileMap[0].length;
+    const mapHeight = gameState.tileMap.length;
     
     const aspectRatio = mapWidth / mapHeight;
     const availableWidth = window.innerWidth;
     const availableHeight = window.innerHeight;
 
     tileSize = availableWidth / availableHeight > aspectRatio
-        ? Math.round(availableHeight / mapHeight)
-        : Math.round(availableWidth / mapWidth);
+        ? Math.floor(availableHeight / mapHeight)
+        : Math.floor(availableWidth / mapWidth);
 
     canvas.width = tileSize * mapWidth;
     canvas.height = tileSize * mapHeight;
 
-    render(device, context, navigator.gpu.getPreferredCanvasFormat());
+    render(navigator.gpu.device, navigator.gpu.getContext('webgpu'), navigator.gpu.getPreferredCanvasFormat());
 });
 
 export { tileSize };

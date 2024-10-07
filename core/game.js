@@ -8,10 +8,9 @@ export const gameState = {
 
 export function initializeTileMap(mapWidth, mapHeight, useDemoMap = true) {
     gameState.tileMap = useDemoMap ? [
-        [0, 0, 0, 0],
-        [1, 0, 0, 1],
-        [1, 0, 0, 1],
-        [0, 0, 0, 0]
+        [0,0,0,0,0],
+        [0,1,1,1,0],
+        [0,0,0,0,0]
     ] : Array.from({ length: mapHeight }, () => (
         Array.from({ length: mapWidth }, () => (Math.random() > 0.8 ? 1 : 0))
     ));
