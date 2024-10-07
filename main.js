@@ -1,6 +1,56 @@
-
 import { initializeWebGPU, createTilePipeline } from './webgpu-setup.js';
 import { initializeTileMap, setupInputHandling, addObject, gameState } from './game.js';
+
+let device, context, format;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Make each object draggable
+    const objectItems = document.querySelectorAll('#objectPanel .object');
+    objectItems.forEach(item => {
+        item.setAttribute('draggable', true);
+        item.addEventListener('dragstart', (event) => {
+            event.dataTransfer.setData('text/plain', item.innerText);
+        });
+    });
+
+    // Set up dragover and drop events for the canvas
+    const canvas = document.getElementById('gameCanvas');
+    canvas.addEventListener('dragover', (event) => {
+        event.preventDefault(); // Necessary to allow a drop
+    });
+
+    canvas.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const objectType = event.dataTransfer.getData('text/plain');
+        
+        // Calculate the drop position relative to the canvas
+        const rect = canvas.getBoundingClientRect();
+        let dropX = event.clientX - rect.left;
+        let dropY = event.clientY - rect.top;
+    
+        // Calculate the tile indices (snapping to the nearest tile)
+        const tileX = Math.floor(dropX / tileSize);
+        const tileY = Math.floor(dropY / tileSize);
+    
+        // Clamp tile indices to ensure they are within the map bounds
+        const mapWidth = gameState.tileMap[0].length;
+        const mapHeight = gameState.tileMap.length;
+        const clampedX = Math.max(0, Math.min(mapWidth - 1, tileX));
+        const clampedY = Math.max(0, Math.min(mapHeight - 1, tileY));
+    
+        // Add the new object to the gameState at the clamped tile position
+        const newObject = {
+            type: objectType,
+            x: clampedX,
+            y: clampedY
+        };
+        gameState.objects.push(newObject);
+        
+        // Trigger a render update
+        render(device, context, format);
+    });
+    
+});
 
 let lastTime = 0;
 let tileSize;
@@ -70,8 +120,12 @@ function renderObjects(passEncoder, device) {
     });
 }
 
-initializeWebGPU().then(({ device, context, format }) => {
-    if (device && context && format) {
+initializeWebGPU().then((gpuData) => {
+    if (gpuData.device && gpuData.context && gpuData.format) {
+        device = gpuData.device;
+        context = gpuData.context;
+        format = gpuData.format;
+
         initializeTileMap(20, 15);
         setupInputHandling();
         requestAnimationFrame((t) => gameLoop(device, context, format, t));
