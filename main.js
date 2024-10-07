@@ -1,6 +1,4 @@
-
 import { initializeWebGPU, createTilePipeline } from './webgpu/webgpu-setup.js';
-import { initializeTileMap, setupInputHandling, gameState, updateCanvasSize } from './core/game.js';
 
 const CONSTANTS = Object.freeze({
     CANVAS: {
@@ -19,116 +17,191 @@ const CONSTANTS = Object.freeze({
 
 document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('gameCanvas');
-
-    const { device, context, format } = await initializeWebGPU();
-    if (device && context && format) {
-        initializeTileMap(20, 15);
-        alignCanvasToMap(canvas);
-        setupInputHandling();
-        requestAnimationFrame(gameLoop.bind(null, device, context, format));
+    if (!canvas) {
+        console.error('Canvas element not found');
+        return;
     }
 
-    createObjectContainer();
-    setupCanvasDragEvents(canvas);
-    setupMouseHoverEffect(canvas);
+    // Set initial canvas size
+    updateCanvasSize(canvas);
+
+    const { device, context, format } = await initializeWebGPU(canvas);
+    if (!device || !context || !format) {
+        console.error('WebGPU initialization failed');
+        return;
+    }
+
+    initializeTileMap(20, 15);
+    setupCanvasHandlers(canvas, device, context, format);
+    
+    // Start game loop
+    let animationFrameId;
+    const gameLoop = (timestamp) => {
+        update(timestamp);
+        render(device, context, format);
+        animationFrameId = requestAnimationFrame(gameLoop);
+    };
+    gameLoop(0);
+
+    // Cleanup function
+    return () => {
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+        }
+    };
 });
 
-function createObjectContainer() {
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        const objectContainer = document.createElement('div');
-        objectContainer.className = 'object-container';
-        sidebar.appendChild(objectContainer);
-        CONSTANTS.OBJECTS.forEach(objName => {
-            const objectItem = document.createElement('div');
-            objectItem.className = 'object';
-            objectItem.innerText = objName;
-            objectItem.setAttribute('draggable', true);
-            objectItem.addEventListener('dragstart', (event) => {
-                event.dataTransfer.setData('text/plain', objName);
-            });
-            objectContainer.appendChild(objectItem);
-        });
+function updateCanvasSize(canvas) {
+    // Get the container dimensions
+    const container = canvas.parentElement;
+    const containerWidth = container.clientWidth - 250; // Adjusted for sidebar
+    const containerHeight = container.clientHeight;
+
+    // Calculate the tile size based on map dimensions
+    const mapWidth = gameState.tileMap?.[0]?.length || 20;
+    const mapHeight = gameState.tileMap?.length || 15;
+    const tileSize = Math.min(
+        containerWidth / mapWidth,
+        containerHeight / mapHeight
+    );
+
+    // Set canvas size
+    canvas.width = Math.floor(tileSize * mapWidth);
+    canvas.height = Math.floor(tileSize * mapHeight);
+    
+    // Set CSS dimensions to match actual dimensions
+    canvas.style.width = `${canvas.width}px`;
+    canvas.style.height = `${canvas.height}px`;
+}
+
+function setupCanvasHandlers(canvas, device, context, format) {
+    const resizeObserver = new ResizeObserver(() => {
+        updateCanvasSize(canvas);
+        render(device, context, format);
+    });
+    resizeObserver.observe(canvas.parentElement);
+
+    // Touch event handling
+    let touchStartX, touchStartY;
+    canvas.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // Prevent scrolling
+        const touch = e.touches[0];
+        handlePointerMove(touch, canvas);
+    });
+
+    // Mouse event handling
+    canvas.addEventListener('mousemove', (e) => handlePointerMove(e, canvas));
+    canvas.addEventListener('mouseleave', () => {
+        gameState.hoverTile = null;
+    });
+
+    // Click/tap handling
+    canvas.addEventListener('click', (e) => handlePointerClick(e, canvas));
+    canvas.addEventListener('touchend', (e) => {
+        const touch = e.changedTouches[0];
+        if (Math.abs(touch.clientX - touchStartX) < 10 && Math.abs(touch.clientY - touchStartY) < 10) {
+            handlePointerClick(touch, canvas);
+        }
+    });
+
+    setupDragAndDrop(canvas);
+}
+
+function handlePointerMove(event, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const tileSize = getTileSize(canvas);
+    const x = Math.floor((event.clientX - rect.left) / tileSize);
+    const y = Math.floor((event.clientY - rect.top) / tileSize);
+
+    if (isValidTilePosition(x, y)) {
+        gameState.hoverTile = { x, y };
+        updateCoordinatesDisplay(x, y);
     }
 }
 
-function setupCanvasDragEvents(canvas) {
+function handlePointerClick(event, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const tileSize = getTileSize(canvas);
+    const x = Math.floor((event.clientX - rect.left) / tileSize);
+    const y = Math.floor((event.clientY - rect.top) / tileSize);
+
+    if (isValidTilePosition(x, y)) {
+        const tileType = gameState.tileMap[y][x];
+        updateInspector(tileType, x, y);
+    }
+}
+
+function setupDragAndDrop(canvas) {
     const hoverIndicator = document.createElement('div');
     hoverIndicator.id = 'hoverIndicator';
     document.body.appendChild(hoverIndicator);
 
-    const tileSize = getTileSize(canvas);
-    canvas.addEventListener('dragover', (event) => {
-        event.preventDefault();
-        const { clampedX, clampedY } = getTileIndices(event, canvas, tileSize);
-        const rect = canvas.getBoundingClientRect();
-        hoverIndicator.style.left = `${Math.floor(rect.left + clampedX * tileSize)}px`;
-        hoverIndicator.style.top = `${Math.floor(rect.top + clampedY * tileSize)}px`;
-        hoverIndicator.style.width = `${tileSize}px`;
-        hoverIndicator.style.height = `${tileSize}px`;
-        hoverIndicator.style.display = 'block';
+    canvas.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        updateHoverIndicator(e, canvas, hoverIndicator);
     });
 
     canvas.addEventListener('dragleave', () => {
         hoverIndicator.style.display = 'none';
     });
 
-    canvas.addEventListener('drop', (event) => {
-        event.preventDefault();
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
         hoverIndicator.style.display = 'none';
-        const objectType = event.dataTransfer.getData('text/plain');
-        const { clampedX, clampedY } = getTileIndices(event, canvas, tileSize);
-        gameState.objects.push({ type: objectType, x: clampedX, y: clampedY });
-        render(navigator.gpu.device, navigator.gpu.getContext('webgpu'), navigator.gpu.getPreferredCanvasFormat());
+        handleObjectDrop(e, canvas);
     });
 }
 
-function getTileIndices(event, canvas, tileSize) {
+function updateHoverIndicator(event, canvas, indicator) {
+    const tileSize = getTileSize(canvas);
+    const { clampedX, clampedY } = getTileIndices(event, canvas, tileSize);
     const rect = canvas.getBoundingClientRect();
-    const hoverX = event.clientX - rect.left;
-    const hoverY = event.clientY - rect.top;
-    const tileX = Math.floor(hoverX / tileSize);
-    const tileY = Math.floor(hoverY / tileSize);
-    const mapWidth = gameState.tileMap[0].length;
-    const mapHeight = gameState.tileMap.length;
-    return {
-        clampedX: Math.max(0, Math.min(mapWidth - 1, tileX)),
-        clampedY: Math.max(0, Math.min(mapHeight - 1, tileY))
-    };
+    
+    Object.assign(indicator.style, {
+        left: `${Math.floor(rect.left + clampedX * tileSize)}px`,
+        top: `${Math.floor(rect.top + clampedY * tileSize)}px`,
+        width: `${tileSize}px`,
+        height: `${tileSize}px`,
+        display: 'block'
+    });
 }
 
-function alignCanvasToMap(canvas) {
-    const mapWidth = gameState.tileMap[0].length;
-    const mapHeight = gameState.tileMap.length;
+function handleObjectDrop(event, canvas) {
+    const objectType = event.dataTransfer.getData('text/plain');
     const tileSize = getTileSize(canvas);
-    canvas.width = tileSize * mapWidth;
-    canvas.height = tileSize * mapHeight;
-    canvas.style.width = `${canvas.width}px`;
-    canvas.style.height = `${canvas.height}px`;
+    const { clampedX, clampedY } = getTileIndices(event, canvas, tileSize);
+    
+    if (isValidTilePosition(clampedX, clampedY)) {
+        gameState.objects.push({ type: objectType, x: clampedX, y: clampedY });
+    }
+}
+
+function isValidTilePosition(x, y) {
+    return (
+        x >= 0 &&
+        y >= 0 &&
+        y < gameState.tileMap.length &&
+        x < gameState.tileMap[0].length
+    );
 }
 
 function getTileSize(canvas) {
     const mapWidth = gameState.tileMap[0].length;
     const mapHeight = gameState.tileMap.length;
-    return Math.min(CONSTANTS.CANVAS.WIDTH / mapWidth, CONSTANTS.CANVAS.HEIGHT / mapHeight);
+    return Math.min(canvas.width / mapWidth, canvas.height / mapHeight);
 }
 
-function setupMouseHoverEffect(canvas) {
-    const tileSize = getTileSize(canvas);
-    canvas.addEventListener('mousemove', (event) => {
-        const coordinatesElement = document.getElementById('coordinates');
-        const coordinatesText = coordinatesElement ? coordinatesElement.innerText : '';
-        const match = coordinatesText.match(/X: (\d+), Y: (\d+)/);
-        if (match) {
-            const clampedX = parseInt(match[1], 10);
-            const clampedY = parseInt(match[2], 10);
-            gameState.hoverTile = { x: clampedX, y: clampedY };
-        }
-    });
-
-    canvas.addEventListener('mouseleave', () => {
-        gameState.hoverTile = null;
-    });
+function updateCoordinatesDisplay(x, y) {
+    const coordinatesElement = document.getElementById('coordinates');
+    if (coordinatesElement) {
+        coordinatesElement.innerText = `X: ${x}, Y: ${y}`;
+    }
 }
 
 let lastTime = 0;
@@ -137,8 +210,8 @@ function gameLoop(device, context, format, timestamp) {
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
     update(deltaTime);
-    renderCanvas(device, context, format);
-    requestAnimationFrame(gameLoop.bind(null, device, context, format));
+    render(device, context, format);
+    requestAnimationFrame((timestamp) => gameLoop(device, context, format, timestamp));
 }
 
 function update(deltaTime) {
@@ -154,8 +227,7 @@ function update(deltaTime) {
     player.y = Math.max(0, Math.min(canvas.height - tileSize, player.y));
 }
 
-function renderCanvas(device, context, format) {
-    const canvas = document.getElementById('gameCanvas');
+function render(device, context, format) {
     const encoder = device.createCommandEncoder();
     const textureView = context.getCurrentTexture().createView();
     const renderPassDescriptor = {
@@ -168,32 +240,79 @@ function renderCanvas(device, context, format) {
     };
 
     const passEncoder = encoder.beginRenderPass(renderPassDescriptor);
+    const canvas = document.getElementById("gameCanvas");
     const tileSize = getTileSize(canvas);
-    renderTiles(passEncoder, device, tileSize);
-    renderObjects(passEncoder, device, tileSize);
+
+    renderTiles(passEncoder, device, canvas.width, canvas.height, tileSize);
+    renderObjects(passEncoder, device, canvas.width, canvas.height, tileSize);
+
     passEncoder.end();
     device.queue.submit([encoder.finish()]);
 }
 
-function renderTiles(passEncoder, device, tileSize) {
+function renderTiles(passEncoder, device, canvasWidth, canvasHeight, tileSize) {
     gameState.tileMap.forEach((row, y) => {
         row.forEach((tile, x) => {
             let tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE : CONSTANTS.COLORS.DEFAULT_TILE;
             if (gameState.hoverTile && gameState.hoverTile.x === x && gameState.hoverTile.y === y) {
                 tileColor = CONSTANTS.COLORS.HOVER_TILE;
             }
-            passEncoder.setPipeline(createTilePipeline(device, tileColor));
-            passEncoder.setViewport(x * tileSize, y * tileSize, tileSize, tileSize, 0, 1);
-            passEncoder.draw(6, 1, 0, 0);
+            const viewportX = x * tileSize;
+            const viewportY = y * tileSize;
+            if (viewportX >= 0 && viewportY >= 0 && viewportX + tileSize <= canvasWidth && viewportY + tileSize <= canvasHeight) {
+                passEncoder.setPipeline(createTilePipeline(device, tileColor));
+                passEncoder.setViewport(viewportX, viewportY, tileSize, tileSize, 0, 1);
+                passEncoder.draw(6, 1, 0, 0);
+            }
         });
     });
 }
 
-function renderObjects(passEncoder, device, tileSize) {
+function renderObjects(passEncoder, device, canvasWidth, canvasHeight, tileSize) {
     gameState.objects.forEach(({ x, y }) => {
         const objColor = CONSTANTS.COLORS.OBJECT;
-        passEncoder.setPipeline(createTilePipeline(device, objColor));
-        passEncoder.setViewport(x * tileSize, y * tileSize, tileSize, tileSize, 0, 1);
-        passEncoder.draw(6, 1, 0, 0);
+        const viewportX = x * tileSize;
+        const viewportY = y * tileSize;
+        if (viewportX >= 0 && viewportY >= 0 && viewportX + tileSize <= canvasWidth && viewportY + tileSize <= canvasHeight) {
+            passEncoder.setPipeline(createTilePipeline(device, objColor));
+            passEncoder.setViewport(viewportX, viewportY, tileSize, tileSize, 0, 1);
+            passEncoder.draw(6, 1, 0, 0);
+        }
     });
+}
+
+function setupInputHandling() {
+    window.addEventListener("keydown", (e) => gameState.keysPressed[e.key] = true);
+    window.addEventListener("keyup", (e) => delete gameState.keysPressed[e.key]);
+}
+
+function updateInspector(tileType, x, y) {
+    const inspectorDetails = document.getElementById('inspectorDetails');
+    if (inspectorDetails) {
+        inspectorDetails.innerHTML = `
+            <p><strong>Tile Properties:</strong></p>
+            <p>Type: ${tileType === 1 ? 'Wall' : 'Floor'}</p>
+            <p>Coordinates: (${x}, ${y})</p>
+        `;
+    }
+}
+
+const gameState = {
+    player: { x: 2, y: 2, speed: 100 },
+    keysPressed: {},
+    tileMap: [],
+    objects: [],
+    hoverTile: null
+};
+
+function initializeTileMap(mapWidth, mapHeight, useDemoMap = true) {
+    gameState.tileMap = useDemoMap ? [
+        [1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1],
+    ] : Array.from({ length: mapHeight }, () => (
+        Array.from({ length: mapWidth }, () => (Math.random() > 0.8 ? 1 : 0))
+    ));
 }
