@@ -28,12 +28,12 @@ export function render(device, context, format) {
     
     if (availableWidth / availableHeight > aspectRatio) {
         // Window is wider than the desired aspect ratio
-        tileSize = Math.floor(availableHeight / mapHeight);
+        tileSize = Math.round(availableHeight / mapHeight);
         canvas.width = tileSize * mapWidth;
         canvas.height = availableHeight;
     } else {
         // Window is taller than the desired aspect ratio
-        tileSize = Math.floor(availableWidth / mapWidth);
+        tileSize = Math.round(availableWidth / mapWidth);
         canvas.width = availableWidth;
         canvas.height = tileSize * mapHeight;
     }
@@ -50,7 +50,7 @@ function renderTiles(passEncoder, device) {
         row.forEach((tile, x) => {
             const tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE : CONSTANTS.COLORS.DEFAULT_TILE;
             passEncoder.setPipeline(createTilePipeline(device, tileColor));
-            passEncoder.setViewport(x * tileSize, y * tileSize, tileSize, tileSize, 0, 1);
+            passEncoder.setViewport(Math.round(x * tileSize), Math.round(y * tileSize), Math.round(tileSize), Math.round(tileSize), 0, 1);
             passEncoder.draw(6, 1, 0, 0);
         });
     });
@@ -65,13 +65,6 @@ function renderObjects(passEncoder, device) {
     });
 }
 
-// Disable zoom functionality with mouse scroll
-window.addEventListener('wheel', (e) => {
-    if (e.ctrlKey) {
-        e.preventDefault();
-    }
-}, { passive: false });
-
 // Add resize event to adjust the canvas size dynamically
 window.addEventListener('resize', () => {
     const canvas = document.getElementById("gameCanvas");
@@ -79,17 +72,17 @@ window.addEventListener('resize', () => {
     const mapHeight = gameState.tileMap.length;
     
     const aspectRatio = mapWidth / mapHeight;
-    const availableWidth = window.innerWidth;
+    const availableWidth = window.innerWidth; 
     const availableHeight = window.innerHeight;
 
     if (availableWidth / availableHeight > aspectRatio) {
         // Window is wider than the desired aspect ratio
-        tileSize = Math.floor(availableHeight / mapHeight);
+        tileSize = Math.round(availableHeight / mapHeight);
         canvas.width = tileSize * mapWidth;
         canvas.height = availableHeight;
     } else {
         // Window is taller than the desired aspect ratio
-        tileSize = Math.floor(availableWidth / mapWidth);
+        tileSize = Math.round(availableWidth / mapWidth);
         canvas.width = availableWidth;
         canvas.height = tileSize * mapHeight;
     }

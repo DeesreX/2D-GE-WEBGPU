@@ -8,33 +8,38 @@
 </head>
 <body>
     <div class="game-container">
-        <header class="toolbar">
-            <button id="newProjectButton">New Project</button>
-            <button id="saveButton">Save</button>
-            <button id="loadButton">Load</button>
-            <button id="settingsButton">Settings</button>
-        </header>
+        <div class="toolbar">
+            <button id="newProjectButton" aria-label="Create a new project">New Project</button>
+            <button id="saveButton" aria-label="Save current project">Save</button>
+            <button id="loadButton" aria-label="Load an existing project">Load</button>
+            <button id="settingsButton" aria-label="Open settings">Settings</button>
+        </div>
         <aside class="sidebar">
-            <h3>Assets</h3>
-            <ul>
-                <li>Sprites</li>
-                <li>Tiles</li>
-                <li>Audio</li>
-                <li>Scripts</li>
-            </ul>
-            <h3>Inspector</h3>
-            <div class="inspector-panel">
-                <!-- Inspector details go here -->
-            </div>
+            <section class="assets-panel">
+                <h3>Assets</h3>
+                <ul>
+                    <li><button class="asset-button" aria-label="View Sprites">Sprites</button></li>
+                    <li><button class="asset-button" aria-label="View Tiles">Tiles</button></li>
+                    <li><button class="asset-button" aria-label="View Audio files">Audio</button></li>
+                    <li><button class="asset-button" aria-label="View Scripts">Scripts</button></li>
+                </ul>
+            </section>
+            <section class="inspector-panel">
+                <h3>Inspector</h3>
+                <div class="inspector-details">
+                    <!-- Inspector details go here -->
+                    <p>Select an item to view its properties.</p>
+                </div>
+            </section>
         </aside>
         <main class="main-content">
             <div class="canvas-container">
-                <canvas id="gameCanvas"></canvas>
+                <canvas id="gameCanvas" tabindex="0" aria-label="Game canvas for rendering the scene"></canvas>
             </div>
         </main>
         <footer class="status-bar">
-            <span id="coordinates">X: 0, Y: 0</span>
-            <span id="fps">FPS: 60</span>
+            <span id="coordinates" aria-live="polite">X: 0, Y: 0</span>
+            <span id="fps" aria-live="polite">FPS: 60</span>
         </footer>
     </div>
     <script type="module" src="main.js"></script>

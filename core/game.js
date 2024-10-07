@@ -1,5 +1,5 @@
 export const gameState = {
-    player: { x: 50, y: 50, speed: 100 },
+    player: { x: 2, y: 2, speed: 100 },
     keysPressed: {},
     tileMap: [],
     objects: []
@@ -8,10 +8,10 @@ export const gameState = {
 export function initializeTileMap(mapWidth, mapHeight, useDemoMap = true) {
     if (useDemoMap) {
         gameState.tileMap = [
+            [0, 0, 0, 0],
             [1, 0, 0, 1],
             [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [1, 0, 0, 1]
+            [0, 0, 0, 0]
         ];
     } else {
         gameState.tileMap = Array.from({ length: mapHeight }, () => (
@@ -22,10 +22,13 @@ export function initializeTileMap(mapWidth, mapHeight, useDemoMap = true) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('gameCanvas');
-    initializeTileMap(20, 15, true); // Initialize the tile map first
+    initializeTileMap(8, 8, true); // Initialize the tile map first
     const mapWidth = gameState.tileMap[0].length;
     const mapHeight = gameState.tileMap.length;
-    let tileSize = Math.min(window.innerWidth / mapWidth, window.innerHeight / mapHeight);
+    let tileSize = Math.min(
+        (window.innerWidth - 250) / mapWidth, // Adjusted for sidebar width
+        window.innerHeight / mapHeight
+    );
 
     // Set initial canvas dimensions
     canvas.width = tileSize * mapWidth;
@@ -36,15 +39,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Add resize event listener to adjust canvas size dynamically
     window.addEventListener('resize', () => {
-        tileSize = Math.min(window.innerWidth / mapWidth, window.innerHeight / mapHeight);
-        canvas.width = tileSize * mapWidth;
-        canvas.height = tileSize * mapHeight;
-        canvas.style.width = `${canvas.width}px`;
-        canvas.style.height = `${canvas.height}px`;
-        render();
+        if (document.activeElement !== canvas) {
+            tileSize = Math.min(
+                (window.innerWidth - 250) / mapWidth, // Adjusted for sidebar width
+                window.innerHeight / mapHeight
+            );
+            canvas.width = tileSize * mapWidth;
+            canvas.height = tileSize * mapHeight;
+            canvas.style.width = `${canvas.width}px`;
+            canvas.style.height = `${canvas.height}px`;
+            render();
+        }
     });
-
-    // Initialize WebGPU and other game elements here...
 });
 
 export function setupInputHandling() {
@@ -60,7 +66,5 @@ export function addObject(type) {
 }
 
 function render() {
-    // This would trigger a re-render after resizing, adjusting all elements accordingly
     console.log('Canvas resized and rendering updated');
-    // Add rendering logic here...
 }

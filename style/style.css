@@ -20,7 +20,7 @@ body {
     width: 100%;
 }
 
-toolbar {
+.toolbar {
     grid-area: toolbar;
     background-color: #444;
     padding: 10px;
@@ -54,7 +54,6 @@ toolbar {
 }
 
 canvas {
-    border: 2px solid #888;
     background-color: #000;
 }
 
@@ -72,11 +71,24 @@ button {
     border: none;
     padding: 8px 12px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, transform 0.2s;
 }
 
 button:hover {
     background-color: #777;
+    transform: scale(1.05);
+}
+
+button:active {
+    transform: scale(1);
+}
+
+.asset-button {
+    width: 100%;
+    text-align: left;
+    padding: 5px;
+    margin-bottom: 5px;
+    border-radius: 5px;
 }
 
 .inspector-panel {
@@ -97,8 +109,23 @@ ul li {
     background-color: #666;
     border-radius: 3px;
     cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
 }
 
 ul li:hover {
     background-color: #777;
+    transform: translateX(5px);
+}
+
+ul li:active {
+    transform: translateX(0);
+}
+
+.status-bar span {
+    font-size: 14px;
+}
+
+.inspector-details p {
+    color: #ddd;
+    font-style: italic;
 }
