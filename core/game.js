@@ -1,3 +1,4 @@
+
 export const gameState = {
     player: { x: 2, y: 2, speed: 100 },
     keysPressed: {},
@@ -6,48 +7,36 @@ export const gameState = {
 };
 
 export function initializeTileMap(mapWidth, mapHeight, useDemoMap = true) {
-    if (useDemoMap) {
-        gameState.tileMap = [
-            [0, 0, 0, 0],
-            [1, 0, 0, 1],
-            [1, 0, 0, 1],
-            [0, 0, 0, 0]
-        ];
-    } else {
-        gameState.tileMap = Array.from({ length: mapHeight }, () => (
-            Array.from({ length: mapWidth }, () => (Math.random() > 0.8 ? 1 : 0))
-        ));
-    }
+    gameState.tileMap = useDemoMap ? [
+        [0, 0, 0, 0],
+        [1, 0, 0, 1],
+        [1, 0, 0, 1],
+        [0, 0, 0, 0]
+    ] : Array.from({ length: mapHeight }, () => (
+        Array.from({ length: mapWidth }, () => (Math.random() > 0.8 ? 1 : 0))
+    ));
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const canvas = document.getElementById('gameCanvas');
-    initializeTileMap(8, 8, true); // Initialize the tile map first
-    const mapWidth = gameState.tileMap[0].length;
-    const mapHeight = gameState.tileMap.length;
-    let tileSize = Math.min(
+export function updateCanvasSize(canvas, mapWidth, mapHeight) {
+    const tileSize = Math.min(
         (window.innerWidth - 250) / mapWidth, // Adjusted for sidebar width
         window.innerHeight / mapHeight
     );
 
-    // Set initial canvas dimensions
     canvas.width = tileSize * mapWidth;
     canvas.height = tileSize * mapHeight;
     canvas.style.width = `${canvas.width}px`;
     canvas.style.height = `${canvas.height}px`;
-    canvas.style.display = 'block';
+}
 
-    // Add resize event listener to adjust canvas size dynamically
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('gameCanvas');
+    initializeTileMap(8, 8, true);
+    updateCanvasSize(canvas, gameState.tileMap[0].length, gameState.tileMap.length);
+
     window.addEventListener('resize', () => {
         if (document.activeElement !== canvas) {
-            tileSize = Math.min(
-                (window.innerWidth - 250) / mapWidth, // Adjusted for sidebar width
-                window.innerHeight / mapHeight
-            );
-            canvas.width = tileSize * mapWidth;
-            canvas.height = tileSize * mapHeight;
-            canvas.style.width = `${canvas.width}px`;
-            canvas.style.height = `${canvas.height}px`;
+            updateCanvasSize(canvas, gameState.tileMap[0].length, gameState.tileMap.length);
             render();
         }
     });
