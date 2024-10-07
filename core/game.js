@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     setupCanvasClickHandler(canvas);
+    setupCanvasHoverHandler(canvas);
 });
 
 export function setupInputHandling() {
@@ -66,6 +67,24 @@ function setupCanvasClickHandler(canvas) {
             const tileType = gameState.tileMap[y][x];
             updateInspector(tileType, x, y);
         }
+    });
+}
+
+function setupCanvasHoverHandler(canvas) {
+    canvas.addEventListener('mousemove', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((event.clientX - rect.left) / (canvas.width / gameState.tileMap[0].length));
+        const y = Math.floor((event.clientY - rect.top) / (canvas.height / gameState.tileMap.length));
+
+        if (x >= 0 && y >= 0 && y < gameState.tileMap.length && x < gameState.tileMap[0].length) {
+            const coordinates = document.getElementById('coordinates');
+            coordinates.innerText = `X: ${x}, Y: ${y}`;
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        const coordinates = document.getElementById('coordinates');
+        coordinates.innerText = 'X: 0, Y: 0';
     });
 }
 

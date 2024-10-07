@@ -20,17 +20,17 @@ const CONSTANTS = Object.freeze({
 
 document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('gameCanvas');
-    updateCanvasSize(canvas, CONSTANTS.CANVAS.WIDTH, CONSTANTS.CANVAS.HEIGHT);
 
     const { device, context, format } = await initializeWebGPU();
     if (device && context && format) {
         initializeTileMap(20, 15);
+        alignCanvasToMap(canvas);
         setupInputHandling();
         requestAnimationFrame((t) => gameLoop(device, context, format, t));
     }
 
     createObjectContainer();
-    setupCanvasDragEvents(canvas);
+    setupCanvasDragEvents(canvas, device, context, format);
 });
 
 function createObjectContainer() {
@@ -52,7 +52,7 @@ function createObjectContainer() {
     }
 }
 
-function setupCanvasDragEvents(canvas) {
+function setupCanvasDragEvents(canvas, device, context, format) {
     const hoverIndicator = document.createElement('div');
     hoverIndicator.id = 'hoverIndicator';
     document.body.appendChild(hoverIndicator);
@@ -95,6 +95,14 @@ function getTileIndices(event, canvas, tileSize) {
         clampedX: Math.max(0, Math.min(mapWidth - 1, tileX)),
         clampedY: Math.max(0, Math.min(mapHeight - 1, tileY))
     };
+}
+
+function alignCanvasToMap(canvas) {
+    const mapWidth = gameState.tileMap[0].length;
+    const mapHeight = gameState.tileMap.length;
+    const tileSize = Math.min(CONSTANTS.CANVAS.WIDTH / mapWidth, CONSTANTS.CANVAS.HEIGHT / mapHeight);
+    canvas.width = tileSize * mapWidth;
+    canvas.height = tileSize * mapHeight;
 }
 
 let lastTime = 0;
