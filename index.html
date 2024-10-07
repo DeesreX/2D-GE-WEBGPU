@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,14 +7,10 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600" class="panel"></canvas>
-    <div id="objectPanel" class="panel">
-        <h3>Objects</h3>
-        <div class="object" onclick="addObject('Tree')">Tree</div>
-        <div class="object" onclick="addObject('Rock')">Rock</div>
-        <div class="object" onclick="addObject('House')">House</div>
-        <div class="object" onclick="addObject('NPC')">NPC</div>
-    </div>
+    <div class="game-container">
+        <div class="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
     <script type="module" src="main.js"></script>
 </body>
 </html>
