@@ -282,7 +282,7 @@ function render(device, context, format) {
 function renderTiles(passEncoder, device, canvasWidth, canvasHeight, tileSize) {
     gameState.tileMap.forEach((row, y) => {
         row.forEach((tile, x) => {
-            let tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE : CONSTANTS.COLORS.DEFAULT_TILE;
+            let tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE : (tile === 2 ? { r: 0.0, g: 0.0, b: 1.0, a: 1.0 } : CONSTANTS.COLORS.DEFAULT_TILE);
             if (gameState.hoverTile && gameState.hoverTile.x === x && gameState.hoverTile.y === y) {
                 tileColor = CONSTANTS.COLORS.HOVER_TILE;
             }
@@ -326,9 +326,27 @@ function updateInspector(tileType, x, y) {
     if (inspectorDetails) {
         inspectorDetails.innerHTML = `
             <p><strong>Tile Properties:</strong></p>
-            <p>Type: ${tileType === 1 ? 'Wall' : 'Floor'}</p>
-            <p>Coordinates: (${x}, ${y})</p>
+            <ul>
+                <li><label>Type: 
+                    <select id="tileTypeSelect">
+                        <option value="floor" ${tileType === 0 ? 'selected' : ''}>Floor</option>
+                        <option value="wall" ${tileType === 1 ? 'selected' : ''}>Wall</option>
+                        <option value="water" ${tileType === 2 ? 'selected' : ''}>Water</option>
+                    </select>
+                </label></li>
+                <li>Coordinates: (${x}, ${y})</li>
+            </ul>
         `;
+        document.getElementById('tileTypeSelect').addEventListener('change', (e) => {
+            const newType = e.target.value;
+            if (newType === 'wall') {
+                gameState.tileMap[y][x] = 1;
+            } else if (newType === 'floor') {
+                gameState.tileMap[y][x] = 0;
+            } else if (newType === 'water') {
+                gameState.tileMap[y][x] = 2;
+            }
+        });
     }
 }
 
