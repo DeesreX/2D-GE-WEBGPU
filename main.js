@@ -9,6 +9,7 @@ const CONSTANTS = Object.freeze({
         DEFAULT_TILE: Object.freeze({ r: 0.7, g: 0.8, b: 0.7, a: 1.0 }),
         WALL_TILE: Object.freeze({ r: 0.2, g: 0.2, b: 0.2, a: 1.0 }),
         OBJECT: Object.freeze({ r: 0.4, g: 0.1, b: 0.5, a: 1.0 }),
+        PLAYER: Object.freeze({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 }),
         BACKGROUND: Object.freeze({ r: 0.1, g: 0.1, b: 0.1, a: 1.0 }),
         HOVER_TILE: Object.freeze({ r: 1.0, g: 0.5, b: 0.0, a: 1.0 })
     },
@@ -16,7 +17,7 @@ const CONSTANTS = Object.freeze({
 });
 
 const gameState = {
-    player: { x: 2, y: 2, speed: 100 },
+    player: { x: 2, y: 2, speed: 1 },
     keysPressed: {},
     tileMap: [],
     objects: [],
@@ -151,7 +152,7 @@ function renderSingleTile(context, x, y) {
     const tile = gameState.tileMap[y][x];
     const color = (gameState.hoverTile && gameState.hoverTile.x === x && gameState.hoverTile.y === y)
         ? CONSTANTS.COLORS.HOVER_TILE
-        : (tile === 1 ? CONSTANTS.COLORS.WALL_TILE : CONSTANTS.COLORS.DEFAULT_TILE);
+        : (tile === 1 ? CONSTANTS.COLORS.WALL_TILE : (tile === 2 ? { r: 0.0, g: 0.0, b: 1.0, a: 1.0 } : CONSTANTS.COLORS.DEFAULT_TILE));
 
     context.fillStyle = `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${color.a})`;
     context.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
@@ -216,6 +217,10 @@ function isValidTilePosition(x, y) {
     );
 }
 
+function isCollidableTile(x, y) {
+    return gameState.tileMap[y][x] === 1; // Wall tiles are collidable
+}
+
 function getTileCoordinates(event, canvas) {
     const rect = canvas.getBoundingClientRect();
     const tileSize = getTileSize(canvas);
@@ -245,15 +250,22 @@ function startGameLoop(device, context, format) {
 
 function update(deltaTime) {
     const { player, keysPressed } = gameState;
-    if (keysPressed["ArrowUp"]) player.y -= player.speed * deltaTime;
-    if (keysPressed["ArrowDown"]) player.y += player.speed * deltaTime;
-    if (keysPressed["ArrowLeft"]) player.x -= player.speed * deltaTime;
-    if (keysPressed["ArrowRight"]) player.x += player.speed * deltaTime;
-
-    const canvas = document.getElementById("gameCanvas");
-    const tileSize = getTileSize(canvas);
-    player.x = Math.max(0, Math.min(canvas.width - tileSize, player.x));
-    player.y = Math.max(0, Math.min(canvas.height - tileSize, player.y));
+    if (keysPressed["w"] && isValidTilePosition(player.x, player.y - 1) && !isCollidableTile(player.x, player.y - 1)) {
+        player.y -= 1;
+        delete keysPressed["w"];
+    }
+    if (keysPressed["s"] && isValidTilePosition(player.x, player.y + 1) && !isCollidableTile(player.x, player.y + 1)) {
+        player.y += 1;
+        delete keysPressed["s"];
+    }
+    if (keysPressed["a"] && isValidTilePosition(player.x - 1, player.y) && !isCollidableTile(player.x - 1, player.y)) {
+        player.x -= 1;
+        delete keysPressed["a"];
+    }
+    if (keysPressed["d"] && isValidTilePosition(player.x + 1, player.y) && !isCollidableTile(player.x + 1, player.y)) {
+        player.x += 1;
+        delete keysPressed["d"];
+    }
 }
 
 function render(device, context, format) {
@@ -274,6 +286,7 @@ function render(device, context, format) {
 
     renderTiles(passEncoder, device, canvas.width, canvas.height, tileSize);
     renderObjects(passEncoder, device, canvas.width, canvas.height, tileSize);
+    renderPlayer(passEncoder, device, tileSize);
 
     passEncoder.end();
     device.queue.submit([encoder.finish()]);
@@ -296,6 +309,12 @@ function renderObjects(passEncoder, device, canvasWidth, canvasHeight, tileSize)
         const objColor = CONSTANTS.COLORS.OBJECT;
         renderTile(passEncoder, device, x, y, objColor, canvasWidth, canvasHeight, tileSize);
     });
+}
+
+function renderPlayer(passEncoder, device, tileSize) {
+    const { x, y } = gameState.player;
+    const playerColor = CONSTANTS.COLORS.PLAYER;
+    renderTile(passEncoder, device, x, y, playerColor, tileSize * gameState.tileMap[0].length, tileSize * gameState.tileMap.length, tileSize);
 }
 
 function renderTile(passEncoder, device, x, y, color, canvasWidth, canvasHeight, tileSize) {
