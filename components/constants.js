@@ -4,10 +4,18 @@ export const CONSTANTS = Object.freeze({
         HEIGHT: window.innerHeight
     },
     COLORS: {
-        DEFAULT_TILE: Object.freeze({ r: 0.8, g: 0.9, b: 0.8, a: 1.0 }),
-        WALL_TILE: Object.freeze({ r: 0.3, g: 0.3, b: 0.3, a: 1.0 }),
-        OBJECT: Object.freeze({ r: 0.5, g: 0.2, b: 0.7, a: 1.0 }),
-        BACKGROUND: Object.freeze({ r: 0.15, g: 0.15, b: 0.15, a: 1.0 })
+        DEFAULT_TILE: Object.freeze({ r: 0.7, g: 0.8, b: 0.7, a: 1.0 }),
+        WALL_TILE: Object.freeze({ r: 0.2, g: 0.2, b: 0.2, a: 1.0 }),
+        OBJECT: Object.freeze({ r: 0.4, g: 0.1, b: 0.5, a: 1.0 }),
+        PLAYER: Object.freeze({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 }),
+        BACKGROUND: Object.freeze({ r: 0.1, g: 0.1, b: 0.1, a: 1.0 }),
+        HOVER_TILE: Object.freeze({ r: 1.0, g: 0.5, b: 0.0, a: 1.0 })
     },
     OBJECTS: ["Tree", "Rock", "House", "NPC"]
 });
+
+export const TILE_TYPES = {
+    WALL: 1,
+    FLOOR: 0,
+    DOOR: 2
+};

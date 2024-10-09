@@ -1,10 +1,28 @@
-
+import { map_01 } from './Maps/map_01.js';
 // Class to manage different maps in the game.
 export default class MapManager {
     constructor(gameState) {
         this.maps = {}; // Stores maps by name.
         this.currentMap = null; // Keeps track of the currently loaded map.
         this.gameState = gameState;
+
+
+        // Bind updateMapList to the current instance
+        this.updateMapList = this.updateMapList.bind(this);
+    }
+
+    Init(){
+        this.loadSavedMaps();
+        this.addMap('MAP_01', {
+            tileMap: map_01,
+            player: { x: 2, y: 2 },
+            objects: []
+        });
+        this.loadMap('startMap');
+    }
+
+    GetMaps(){
+        return this.maps;
     }
 
     // Adds a new map to the maps collection.
@@ -63,6 +81,33 @@ export default class MapManager {
         }
     }
 
-
+    updateMapList() {
+        const allMaps = this.GetMaps(); // Make sure 'allMaps' correctly gets the maps object.
+        const mapList = document.getElementById('mapList');
+        if (mapList) {
+            mapList.innerHTML = ''; // Clear the map list.
+    
+            // Iterate over the maps and create list items for each map.
+            Object.keys(allMaps).forEach(mapName => {
+                const listItem = document.createElement('li');
+                listItem.className = 'map-list-item';
+                listItem.textContent = mapName;
+                listItem.style.cursor = 'pointer';
+                listItem.style.padding = '10px';
+                listItem.style.borderBottom = '1px solid #555';
+    
+                // Attach a click event handler to load the selected map.
+                listItem.addEventListener('click', () => {
+                    this.saveCurrentMap(); // Save the current map before loading a new one.
+                    this.loadMap(mapName); // Load the selected map.
+                });
+    
+                // Add the list item to the map list in the DOM.
+                mapList.appendChild(listItem);
+            });
+        }
+    }
+    
     
 }
+
