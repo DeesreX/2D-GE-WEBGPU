@@ -133,7 +133,7 @@ function handlePointerClick(event, canvas) {
     const { x, y } = getTileCoordinates(event, canvas);
     if (isValidTilePosition(x, y)) {
         const tileType = gameState.tileMap[y][x];
-        const sidebar = document.querySelector('.inspectorDetails');
+        const sidebar = document.querySelector('.inspector-details');
         if (sidebar.style.display === 'none') {
             sidebar.style.display = "block";
             sidebar.style.left = '0';

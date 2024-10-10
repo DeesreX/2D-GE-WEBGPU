@@ -1,9 +1,11 @@
+let currentOpenPanel = null;
+
 class SidePanel {
     constructor(className, content) {
         this.Container = document.createElement('div');
         this.Container.className = className;
         this.Container.style.position = 'fixed';
-        this.Container.style.left = '-240'; 
+        this.Container.style.left = '-240px'; 
         this.Container.style.top = '0';
         this.Container.style.display = 'none';
         this.Container.style.width = '240px';
@@ -19,15 +21,23 @@ class SidePanel {
     }
 
     open() {
-        this.Container.style.display = "block";
+        if (currentOpenPanel && currentOpenPanel !== this) {
+            currentOpenPanel.close();
+        }
+        this.Container.style.left = '0';
+        this.Container.style.display = 'block';
+        currentOpenPanel = this;
     }
 
     close() {
-        this.Container.style.left = '-240';
-        this.Container.style.display = "none";
+        this.Container.style.left = '-240px';
+        this.Container.style.display = 'none';
+        if (currentOpenPanel === this) {
+            currentOpenPanel = null;
+        }
     }
 
-    updateContent(content){
+    updateContent(content) {
         this.Container.innerHTML = content;
     }
 }
@@ -35,20 +45,48 @@ class SidePanel {
 class DimentionsSelectionSidePanel extends SidePanel {
     constructor(className, content) {
         super(className, content);
-        this.Container.querySelector('#closeSidebarButton').addEventListener('click', () => {
-            this.close();
-        });
+        this.addCloseButtonListener('#closeSidebarButton');
+    }
+
+    addCloseButtonListener(buttonSelector) {
+        const closeButton = this.Container.querySelector(buttonSelector);
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.close();
+            });
+        }
     }
 }
 
 class MapManagerSidePanel extends SidePanel {
     constructor(className, content) {
         super(className, content);
-        document.getElementById('closeSidebarButton').addEventListener('click', () => {
-            const sidebar = document.querySelector('.map-manager-sidebar');
-            sidebar.style.left = '-240';
-            sidebar.style.display = "none";
-        });
+        this.addCloseButtonListener('#closeSidebarButton');
+    }
+
+    addCloseButtonListener(buttonSelector) {
+        const closeButton = this.Container.querySelector(buttonSelector);
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.close();
+            });
+        }
+    }
+}
+
+class InspectorSidePanel extends SidePanel {
+    constructor(className, content) {
+        super(className, content);
+        this.addCloseButtonListener('#closeInspector');
+    }
+
+    addCloseButtonListener(buttonSelector) {
+        const closeButton = this.Container.querySelector(buttonSelector);
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.close();
+            });
+        }
     }
 }
 
@@ -60,8 +98,10 @@ export function createDimensionSelectionForm() {
     <input type="number" id="mapHeight" name="mapHeight" min="1" value="15" style="margin-bottom: 10px; width: 60px;">
     <button id="startGameButton" style="padding: 5px 15px; margin-top: 10px;">Start Game</button>
     <button id="closeSidebarButton" class="sidebar-button" style="margin-top: 20px;">Close Sidebar</button>`;
-    var dimentionsSelectionSideBar = new DimentionsSelectionSidePanel('dimentions', content);
-    dimentionsSelectionSideBar.open();
+    const dimensionPanel = new DimentionsSelectionSidePanel('dimentions-selection-sidebar', content);
+    document.getElementById('newProjectButton').addEventListener('click', () => {
+        dimensionPanel.open();
+    });
 }
 
 export function createMapManagerSidebar(mapManager) {
@@ -81,73 +121,42 @@ export function createMapManagerSidebar(mapManager) {
         </div>
         <button id="closeSidebarButton" class="sidebar-button" style="margin-top: 20px;">Close Sidebar</button>
     `;
-    var mapManagerSidePanel = new MapManagerSidePanel(className, content)
+    const mapManagerSidePanel = new MapManagerSidePanel(className, content);
+    document.getElementById('btn_map_manager').addEventListener('click', () => {
+        mapManagerSidePanel.open();
+    });
 
-    // // Event listeners for saving and loading maps.
-    // document.getElementById('saveMapButton').addEventListener('click', () => mapManager.saveCurrentMap());
-    // document.getElementById('loadMapButton').addEventListener('click', () => mapManager.loadSavedMaps());
-    // document.getElementById('addMapButton').addEventListener('click', () => {
-    //     const mapName = document.getElementById('newMapName').value.trim();
-    //     if (mapName && !mapManager.maps[mapName]) {
-    //         mapManager.addMap(mapName, {
-    //             tileMap: Array.from({ length: 10 }, () => Array(10).fill(0)),
-    //             player: { x: 0, y: 0 },
-    //             objects: []
-    //         });
-    //         mapManager.updateMapList();
-    //     }
-    // });
+    // Event listeners for saving and loading maps.
+    mapManagerSidePanel.Container.querySelector('#saveMapButton').addEventListener('click', () => mapManager.saveCurrentMap());
+    mapManagerSidePanel.Container.querySelector('#loadMapButton').addEventListener('click', () => mapManager.loadSavedMaps());
+    mapManagerSidePanel.Container.querySelector('#addMapButton').addEventListener('click', () => {
+        const mapName = mapManagerSidePanel.Container.querySelector('#newMapName').value.trim();
+        if (mapName && !mapManager.maps[mapName]) {
+            mapManager.addMap(mapName, {
+                tileMap: Array.from({ length: 10 }, () => Array(10).fill(0)),
+                player: { x: 0, y: 0 },
+                objects: []
+            });
+            mapManager.updateMapList();
+        }
+    });
 
     mapManager.updateMapList();
 }
 
-
 export function createInspectorSidebar() {
-    const sidebar = document.createElement('div');
-    sidebar.className = 'inspectorDetails';
-    sidebar.style.position = 'fixed';
-    sidebar.style.left = '-240'; 
-    sidebar.style.top = '0';
-    sidebar.style.display = 'none';
-    sidebar.style.width = '240px';
-    sidebar.style.height = '100%';
-    sidebar.style.backgroundColor = '#333';
-    sidebar.style.color = '#fff';
-    sidebar.style.padding = '10px';
-    sidebar.style.overflowY = 'auto';
-    sidebar.style.transition = 'left 0.3s ease';
-    sidebar.style.boxShadow = '2px 0 5px rgba(0,0,0,0.5)';
-
-    sidebar.innerHTML = `
+    var content = `
         <h2>Inspector</h2>
-            <section class="inspector-panel">
-                <h3>Inspector</h3>
-                <div class="inspector-details" id="inspectorDetails">
-                    <p>Select an item to view its properties.</p>
-                </div>
-            </section>
+        <section class="inspector-panel">
+            <h3>Inspector</h3>
+            <div class="inspector-details" id="inspectorDetails">
+                <p>Select an item to view its properties.</p>
+            </div>
+        </section>
         <button id="closeInspector" class="sidebar-button" style="margin-top: 20px;">Close Sidebar</button>
     `;
-    document.body.appendChild(sidebar);
-
-
-    // Event listener to toggle the sidebar's visibility.
+    const inspectorPanel = new InspectorSidePanel('inspector-details', content);
     document.getElementById('btn_inspector').addEventListener('click', () => {
-        const sidebar = document.querySelector('.inspectorDetails');
-        if (sidebar.style.left === '0px') {
-            sidebar.style.left = '-240';
-            sidebar.style.display = "none";
-        } else {
-            sidebar.style.display = "block";
-            sidebar.style.left = '0';
-        }
+        inspectorPanel.open();
     });
-
-    // Event listener to close the sidebar.
-    document.getElementById('closeInspector').addEventListener('click', () => {
-        const sidebar = document.querySelector('.inspectorDetails');
-        sidebar.style.left = '-300px';
-        sidebar.style.display = "none";
-    });
-
 }
