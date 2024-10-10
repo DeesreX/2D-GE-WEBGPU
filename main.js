@@ -2,7 +2,7 @@ import { initializeWebGPU, createTilePipeline } from './webgpu/webgpu-setup.js';
 import MapManager from './MapManager.js';
 import { gameState } from './States/gameState.js';
 import { CONSTANTS, TILE_TYPES } from './components/constants.js';
-import { createDimensionSelectionForm, createMapManagerSidebar } from './ui.js';
+import { createDimensionSelectionForm, createMapManagerSidebar, createInspectorSidebar } from './ui.js';
 
 const mapManager = new MapManager(gameState);
 
@@ -22,11 +22,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    createDimensionSelectionForm(device, context, format); // Create UI for selecting map dimensions.
+    createDimensionSelectionForm(); // Create UI for selecting map dimensions.
     setupCanvasHandlers(canvas, device, context, format); // Set up event handlers for the canvas.
     setupInputHandling(); // Set up keyboard input handling.
     setupMenuHandlers(device, context, format); // Set up handlers for the menu.
     createMapManagerSidebar(mapManager); // Create the sidebar for managing maps.
+    createInspectorSidebar();
     mapManager.Init();
     startGameLoop(device, context, format); 
 });
@@ -132,9 +133,14 @@ function handlePointerClick(event, canvas) {
     const { x, y } = getTileCoordinates(event, canvas);
     if (isValidTilePosition(x, y)) {
         const tileType = gameState.tileMap[y][x];
+        const sidebar = document.querySelector('.inspectorDetails');
+        if (sidebar.style.display === 'none') {
+            sidebar.style.display = "block";
+            sidebar.style.left = '0';
+        }
         updateInspector(tileType, x, y);
     }
-}
+}  
 
 // Sets up drag-and-drop functionality for the canvas.
 function setupDragAndDrop(canvas) {
