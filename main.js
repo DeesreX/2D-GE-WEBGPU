@@ -5,7 +5,7 @@ import {
 } from "./webgpu/webgpu-setup.js";
 import MapManager from "./MapManager.js";
 import { gameState } from "./States/gameState.js";
-import { CONSTANTS } from "./components/constants.js";
+import { CONSTANTS, TILE_TYPES } from "./components/constants.js";
 import {
   createDimensionSelectionForm,
   createMapManagerSidebar,
@@ -31,18 +31,19 @@ class Game {
     this.device = device;
     this.context = context;
     this.format = format;
-    this.textures = await loadTextures(this.device);
+
+    // Load the texture array
+    const textureArray = await loadTextures(this.device);
+
     // Create a sampler
-    this.sampler = this.device.createSampler({
+    const sampler = device.createSampler({
       magFilter: 'linear',
       minFilter: 'linear',
-      mipmapFilter: 'nearest',
+      mipmapFilter: 'linear',
     });
-    this.pipelineInfo = createTilePipeline(
-        this.device,
-        this.textures,
-        this.sampler
-      );
+
+    // Create the pipeline and related resources
+    this.pipelineInfo = createTilePipeline(device, textureArray, sampler);
 
     // Initialize other game systems and start the render loop.
     createDimensionSelectionForm();
@@ -172,13 +173,13 @@ class Game {
     const { x, y } = getTileCoordinates(event, this.canvas);
     const rect = this.canvas.getBoundingClientRect();
 
-    Object.assign(indicator.style, {
-      left: `${Math.floor(rect.left + x * tileSize)}px`,
-      top: `${Math.floor(rect.top + y * tileSize)}px`,
-      width: `${tileSize}px`,
-      height: `${tileSize}px`,
-      display: "block",
-    });
+    // Object.assign(indicator.style, {
+    //   left: `${Math.floor(rect.left + x * tileSize)}px`,
+    //   top: `${Math.floor(rect.top + y * tileSize)}px`,
+    //   width: `${tileSize}px`,
+    //   height: `${tileSize}px`,
+    //   display: "block",
+    // });
   }
 
   handleObjectDrop(event) {
@@ -264,11 +265,17 @@ class Game {
       }
     }
   }
+
   render() {
     const device = this.device;
     const context = this.context;
     const pipelineInfo = this.pipelineInfo;
-  
+
+    if (!pipelineInfo) {
+      console.error("Pipeline information is not initialized.");
+      return;
+    }
+
     const commandEncoder = device.createCommandEncoder();
     const textureView = context.getCurrentTexture().createView();
     const renderPassDescriptor = {
@@ -281,12 +288,12 @@ class Game {
         },
       ],
     };
-  
+
     const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
-  
+
     const canvas = this.canvas;
     const tileSize = getTileSize(canvas);
-  
+
     // Update uniform buffers
     device.queue.writeBuffer(
       pipelineInfo.canvasSizeUniformBuffer,
@@ -298,47 +305,29 @@ class Game {
       0,
       new Float32Array([tileSize])
     );
-  
+
     // Prepare data for instanced rendering
     const tileInstances = [];
-  
+
     gameState.tileMap.forEach((row, y) => {
-      row.forEach((tile, x) => {
-        let textureIndex = 0; // Default to floor texture
-  
-        // Map tile types to texture indices
-        switch (tile) {
-          case 0: // Floor
-            textureIndex = 0;
-            break;
-          case 1: // Wall
-            textureIndex = 1;
-            break;
-          case 2: // Water
-            textureIndex = 2;
-            break;
-          case 3: // Lava
-            textureIndex = 3;
-            break;
-          default:
-            textureIndex = 0;
-        }
-  
-        if (
-          gameState.hoverTile &&
-          gameState.hoverTile.x === x &&
-          gameState.hoverTile.y === y
-        ) {
-          textureIndex = 6; // Hover texture
-        }
-  
-        tileInstances.push({
-          offset: [x * tileSize, y * tileSize],
-          textureIndex: textureIndex,
+        row.forEach((tile, x) => {
+          let textureIndex = tile; // Assuming tile value corresponds to index in TILE_TYPES
+      
+          if (
+            gameState.hoverTile &&
+            gameState.hoverTile.x === x &&
+            gameState.hoverTile.y === y
+          ) {
+            textureIndex = TILE_TYPES.findIndex((t) => t.name === 'hover');
+          }
+      
+          tileInstances.push({
+            offset: [x * tileSize, y * tileSize],
+            textureIndex: textureIndex,
+          });
         });
       });
-    });
-  
+
     // Include objects
     gameState.objects.forEach(({ x, y }) => {
       tileInstances.push({
@@ -346,14 +335,14 @@ class Game {
         textureIndex: 5, // Object texture
       });
     });
-  
+
     // Include player
     const { x: playerX, y: playerY } = gameState.player;
     tileInstances.push({
       offset: [playerX * tileSize, playerY * tileSize],
       textureIndex: 4, // Player texture
     });
-  
+
     // Convert tileInstances to a Float32Array
     const instanceData = new Float32Array(tileInstances.length * 3);
     tileInstances.forEach((instance, index) => {
@@ -361,7 +350,7 @@ class Game {
       instanceData[index * 3 + 1] = instance.offset[1];       // offset.y
       instanceData[index * 3 + 2] = instance.textureIndex;    // textureIndex
     });
-  
+
     // Create or update the instance buffer
     if (!this.instanceBuffer || this.instanceBuffer.size < instanceData.byteLength) {
       // Create a new buffer if it doesn't exist or is too small
@@ -371,18 +360,18 @@ class Game {
       });
     }
     device.queue.writeBuffer(this.instanceBuffer, 0, instanceData);
-  
+
     // Set pipeline and draw
     renderPass.setPipeline(pipelineInfo.pipeline);
     renderPass.setBindGroup(0, pipelineInfo.bindGroup);
     renderPass.setVertexBuffer(0, pipelineInfo.vertexBuffer);
     renderPass.setVertexBuffer(1, this.instanceBuffer);
-  
+
     const vertexCount = 4; // Number of vertices in the quad
     const instanceCount = tileInstances.length; // Number of instances
-  
+
     renderPass.draw(vertexCount, instanceCount, 0, 0);
-  
+
     renderPass.end();
     device.queue.submit([commandEncoder.finish()]);
   }
@@ -400,69 +389,34 @@ function updateCoordinatesDisplay(x, y) {
     coordinatesElement.innerText = `X: ${x}, Y: ${y}`;
   }
 }
-
-function updateInspector(tileType, x, y, mapManager) {
-  const inspectorDetails = document.getElementById("inspectorDetails");
-  if (inspectorDetails) {
-    inspectorDetails.innerHTML = `
-            <p><strong>Tile Properties:</strong></p>
-            <ul>
-                <li><label>Type: 
-                    <select id="tileTypeSelect">
-                        <option value="floor" ${
-                          tileType === 0 ? "selected" : ""
-                        }>Floor</option>
-                        <option value="wall" ${
-                          tileType === 1 ? "selected" : ""
-                        }>Wall</option>
-                        <option value="water" ${
-                          tileType === 2 ? "selected" : ""
-                        }>Water</option>
-                        <option value="lava" ${
-                          tileType === 3 ? "selected" : ""
-                        }>Lava</option>
-                    </select>
-                </label></li>
-                <li>Coordinates: (${x}, ${y})</li>
-                <li><label>Move to Map: 
-                    <select id="moveToMapSelect">
-                        ${Object.keys(mapManager.maps)
-                          .map(
-                            (mapName) =>
-                              `<option value="${mapName}">${mapName}</option>`
-                          )
-                          .join("")}
-                    </select>
-                </label></li>
-                <button id="moveToMapButton">Move Player to Selected Map</button>
-            </ul>
-        `;
-    document
-      .getElementById("tileTypeSelect")
-      .addEventListener("change", (e) => {
-        const newType = e.target.value;
-        if (newType === "wall") {
-          gameState.tileMap[y][x] = 1;
-        } else if (newType === "floor") {
-          gameState.tileMap[y][x] = 0;
-        } else if (newType === "water") {
-          gameState.tileMap[y][x] = 2;
-        } else if (newType === "lava") {
-          gameState.tileMap[y][x] = 3;
-        }
+function updateInspector(tileTypeIndex, x, y, mapManager) {
+    const inspectorDetails = document.getElementById("inspectorDetails");
+    if (inspectorDetails) {
+      const optionsHtml = TILE_TYPES.map((tileType, index) => `
+        <option value="${index}" ${index === tileTypeIndex ? "selected" : ""}>${tileType.name.charAt(0).toUpperCase() + tileType.name.slice(1)}</option>
+      `).join('');
+  
+      inspectorDetails.innerHTML = `
+        <p><strong>Tile Properties:</strong></p>
+        <ul>
+          <li><label>Type: 
+            <select id="tileTypeSelect">
+              ${optionsHtml}
+            </select>
+          </label></li>
+          <li>Coordinates: (${x}, ${y})</li>
+        </ul>
+      `;
+  
+      document.getElementById("tileTypeSelect").addEventListener("change", (e) => {
+        const newTypeIndex = parseInt(e.target.value);
+        gameState.tileMap[y][x] = newTypeIndex;
       });
-    document
-      .getElementById("moveToMapButton")
-      .addEventListener("click", () => {
-        const selectedMap = document.getElementById("moveToMapSelect").value;
-        if (selectedMap) {
-          mapManager.saveCurrentMap();
-          mapManager.loadMap(selectedMap);
-        }
-      });
+  
+      // Rest of your event listeners
+    }
   }
-}
-
+  
 function throttle(func, limit) {
   let lastFunc;
   let lastRan;
@@ -509,7 +463,9 @@ function isValidTilePosition(x, y) {
 }
 
 function isCollidableTile(x, y) {
-  return gameState.tileMap[y][x] === 1; // Wall tiles are collidable.
+  const tileTypeIndex = gameState.tileMap[y][x];
+  const tileType = TILE_TYPES[tileTypeIndex];
+  return tileType.collidable;
 }
 
 // Initialize the game when the DOM is loaded.

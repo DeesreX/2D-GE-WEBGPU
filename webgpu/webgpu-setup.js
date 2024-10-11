@@ -1,100 +1,64 @@
-export function createTilePipeline(device, textures, sampler) {
+import { TILE_TYPES } from "../components/constants.js";
+export function createTilePipeline(device, textureArray, sampler) {
     const shaderModule = device.createShaderModule({
       code: `
-      
       // Uniforms
-@group(0) @binding(0)
-var<uniform> uCanvasSize: vec2<f32>;
-
-@group(0) @binding(1)
-var<uniform> uTileSize: f32;
-
-// Individual texture bindings
-@group(0) @binding(2)
-var floorTexture: texture_2d<f32>;
-
-@group(0) @binding(3)
-var wallTexture: texture_2d<f32>;
-
-@group(0) @binding(4)
-var waterTexture: texture_2d<f32>;
-
-@group(0) @binding(5)
-var lavaTexture: texture_2d<f32>;
-
-@group(0) @binding(6)
-var playerTexture: texture_2d<f32>;
-
-@group(0) @binding(7)
-var objectTexture: texture_2d<f32>;
-
-@group(0) @binding(8)
-var hoverTexture: texture_2d<f32>;
-
-// Sampler at binding 9
-@group(0) @binding(9)
-var tileSampler: sampler;
-
-// Define VertexInput struct
-struct VertexInput {
-  @location(0) position: vec2<f32>,
-  @location(1) offset: vec2<f32>,
-  @location(2) textureIndex: f32,
-};
-
-// Define VertexOutput struct
-struct VertexOutput {
-  @builtin(position) position: vec4<f32>,
-  @location(0) vUV: vec2<f32>,
-  @location(1) vTextureIndex: f32,
-};
-
-@vertex
-fn vertex_main(input: VertexInput) -> VertexOutput {
-  var output: VertexOutput;
-  let pos = (input.position * uTileSize + input.offset) / uCanvasSize * 2.0 - 1.0;
-  output.position = vec4<f32>(pos.x, -pos.y, 0.0, 1.0); // Flip Y-axis
-  output.vUV = input.position;
-  output.vTextureIndex = input.textureIndex;
-  return output;
-}
-
-@fragment
-fn fragment_main(
-  @location(0) vUV: vec2<f32>,
-  @location(1) vTextureIndex: f32
-) -> @location(0) vec4<f32> {
-  // Sample all textures unconditionally
-  let floorColor = textureSample(floorTexture, tileSampler, vUV);
-  let wallColor = textureSample(wallTexture, tileSampler, vUV);
-  let waterColor = textureSample(waterTexture, tileSampler, vUV);
-  let lavaColor = textureSample(lavaTexture, tileSampler, vUV);
-  let playerColor = textureSample(playerTexture, tileSampler, vUV);
-  let objectColor = textureSample(objectTexture, tileSampler, vUV);
-  let hoverColor = textureSample(hoverTexture, tileSampler, vUV);
-
-  // Convert textureIndex to integer
-  let textureIndex = i32(vTextureIndex);
-
-  // Initialize color
-  var color: vec4<f32> = vec4<f32>(0.0);
-
-  // Select the correct color without branching
-  color += floorColor * f32(textureIndex == 0);
-  color += wallColor * f32(textureIndex == 1);
-  color += waterColor * f32(textureIndex == 2);
-  color += lavaColor * f32(textureIndex == 3);
-  color += playerColor * f32(textureIndex == 4);
-  color += objectColor * f32(textureIndex == 5);
-  color += hoverColor * f32(textureIndex == 6);
-
-  return color;
-}
-
-
-
+      @group(0) @binding(0)
+      var<uniform> uCanvasSize: vec2<f32>;
+  
+      @group(0) @binding(1)
+      var<uniform> uTileSize: f32;
+  
+      // Texture array binding
+      @group(0) @binding(2)
+      var tileTextures: texture_2d_array<f32>;
+  
+      // Sampler
+      @group(0) @binding(3)
+      var tileSampler: sampler;
+  
+      // Define VertexInput struct
+      struct VertexInput {
+        @location(0) position: vec2<f32>,
+        @location(1) offset: vec2<f32>,
+        @location(2) textureIndex: f32,
+      };
+  
+      // Define VertexOutput struct
+      struct VertexOutput {
+        @builtin(position) position: vec4<f32>,
+        @location(0) vUV: vec2<f32>,
+        @location(1) vTextureIndex: f32,
+      };
+  
+      @vertex
+      fn vertex_main(input: VertexInput) -> VertexOutput {
+        var output: VertexOutput;
+        let pos = (input.position * uTileSize + input.offset) / uCanvasSize * 2.0 - 1.0;
+        output.position = vec4<f32>(pos.x, -pos.y, 0.0, 1.0); // Flip Y-axis
+        output.vUV = input.position;
+        output.vTextureIndex = input.textureIndex;
+        return output;
+      }
+  
+      @fragment
+      fn fragment_main(
+        @location(0) vUV: vec2<f32>,
+        @location(1) vTextureIndex: f32
+      ) -> @location(0) vec4<f32> {
+        let textureIndex = i32(vTextureIndex);
+        let color = textureSample(
+          tileTextures,
+          tileSampler,
+          vUV,
+          textureIndex
+        );
+  
+        return color;
+      }
       `,
     });
+  
   
     const bindGroupLayout = device.createBindGroupLayout({
         entries: [
@@ -102,30 +66,24 @@ fn fragment_main(
           { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
           { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
       
-          // Individual texture bindings
-          { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-          { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-          { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-          { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-          { binding: 6, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-          { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-          { binding: 8, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+          // Texture array binding
+          { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } },
       
           // Sampler
-          { binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
         ],
       });
-  
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout],
-    });
-  
-    const pipeline = device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex: {
-        module: shaderModule,
-        entryPoint: 'vertex_main',
-        buffers: [
+      
+      const pipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [bindGroupLayout],
+      });
+
+      const pipeline = device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex: {
+          module: shaderModule,
+          entryPoint: 'vertex_main',
+          buffers: [
             // Vertex buffer (positions)
             {
               arrayStride: 2 * 4, // position (vec2<f32>)
@@ -141,16 +99,16 @@ fn fragment_main(
               ],
             },
           ],
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: 'fragment_main',
-        targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
-      },
-      primitive: {
-        topology: 'triangle-strip',
-      },
-    });
+        },
+        fragment: {
+          module: shaderModule,
+          entryPoint: 'fragment_main',
+          targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }],
+        },
+        primitive: {
+          topology: 'triangle-strip',
+        },
+      });
   
     const vertexData = new Float32Array([
       0.0, 0.0, // Bottom-left
@@ -184,30 +142,23 @@ fn fragment_main(
           // Uniform buffers
           { binding: 0, resource: { buffer: canvasSizeUniformBuffer } },
           { binding: 1, resource: { buffer: tileSizeUniformBuffer } },
-      
-          // Bind each texture individually
-          { binding: 2, resource: textures.floor.createView() },
-          { binding: 3, resource: textures.wall.createView() },
-          { binding: 4, resource: textures.water.createView() },
-          { binding: 5, resource: textures.lava.createView() },
-          { binding: 6, resource: textures.player.createView() },
-          { binding: 7, resource: textures.object.createView() },
-          { binding: 8, resource: textures.hover.createView() },
-      
+    
+          // Texture array binding
+          { binding: 2, resource: textureArray.createView({ dimension: '2d-array' }) },
+    
           // Sampler
-          { binding: 9, resource: sampler },
+          { binding: 3, resource: sampler },
         ],
       });
-      
   
-    return {
-      pipeline,
-      bindGroup,
-      vertexBuffer,
-      canvasSizeUniformBuffer,
-      tileSizeUniformBuffer,
-    };
-  }
+  return {
+    pipeline,
+    bindGroup,
+    vertexBuffer,
+    canvasSizeUniformBuffer,
+    tileSizeUniformBuffer,
+  };
+}
   
   
   export async function initializeWebGPU(canvas) {
@@ -226,48 +177,79 @@ fn fragment_main(
     context.configure({ device, format, alphaMode: "opaque" });
     return { device, context, format };
   }
+
+
   export async function loadTextures(device) {
-    const textures = {};
-    
-    textures.floor = await loadTexture(device, './textures/floor.png'); // Add this line
-    textures.wall = await loadTexture(device, './textures/wall.png');
-    textures.water = await loadTexture(device, './textures/water.png');
-    textures.lava = await loadTexture(device, './textures/lava.png');
-    textures.player = await loadTexture(device, './textures/player.png');
-    textures.object = await loadTexture(device, './textures/object.png');
-    textures.hover = await loadTexture(device, './textures/hover.png');
-    return textures;
+    const textureUrls = TILE_TYPES.map((tileType) => tileType.textureUrl);
+  
+    const textureArray = await loadTextureArray(device, textureUrls);
+    return textureArray;
+  }
+  
+  async function loadTextureArray(device, textureUrls) {
+    // Load all images
+    const imageBitmaps = await Promise.all(
+      textureUrls.map(async (url) => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch texture at ${url}: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        return await createImageBitmap(blob);
+      })
+    );
+  
+    // Find the maximum width and height
+    let maxWidth = 0;
+    let maxHeight = 0;
+    for (const bitmap of imageBitmaps) {
+      if (bitmap.width > maxWidth) maxWidth = bitmap.width;
+      if (bitmap.height > maxHeight) maxHeight = bitmap.height;
+    }
+  
+    // Resize or pad all images to have the same dimensions
+    const resizedBitmaps = await Promise.all(
+      imageBitmaps.map(async (bitmap) => {
+        if (bitmap.width !== maxWidth || bitmap.height !== maxHeight) {
+          // Resize the image
+          return await createImageBitmap(bitmap, {
+            resizeWidth: maxWidth,
+            resizeHeight: maxHeight,
+            resizeQuality: 'high',
+          });
+  
+          // Alternatively, pad the image to avoid distortion
+          // return await padImageBitmap(bitmap, maxWidth, maxHeight);
+        } else {
+          return bitmap;
+        }
+      })
+    );
+  
+    const width = maxWidth;
+    const height = maxHeight;
+    const depth = resizedBitmaps.length; // Number of textures
+  
+    const texture = device.createTexture({
+      size: [width, height, depth],
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d',
+    });
+  
+    for (let i = 0; i < depth; i++) {
+      device.queue.copyExternalImageToTexture(
+        { source: resizedBitmaps[i] },
+        { texture: texture, origin: [0, 0, i] },
+        [width, height, 1]
+      );
+    }
+  
+    return texture;
   }
   
 
-  async function loadTexture(device, url) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch texture at ${url}: ${response.status} ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      const imageBitmap = await createImageBitmap(blob);
-  
-      const texture = device.createTexture({
-        size: [imageBitmap.width, imageBitmap.height, 1],
-        format: 'rgba8unorm',
-        usage:
-          GPUTextureUsage.TEXTURE_BINDING |
-          GPUTextureUsage.COPY_DST |
-          GPUTextureUsage.RENDER_ATTACHMENT, // Added RENDER_ATTACHMENT
-      });
-  
-      device.queue.copyExternalImageToTexture(
-        { source: imageBitmap },
-        { texture: texture },
-        [imageBitmap.width, imageBitmap.height, 1]
-      );
-  
-      return texture;
-    } catch (error) {
-      console.error(`Error loading texture from ${url}:`, error);
-      return null;
-    }
-  }
   
