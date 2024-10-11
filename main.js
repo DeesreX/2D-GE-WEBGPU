@@ -281,8 +281,6 @@ function handleMapTransition() {
         }
     }
 }
-
-// Renders the game on the canvas using WebGPU.
 function render(device, context, format) {
     const encoder = device.createCommandEncoder();
     const textureView = context.getCurrentTexture().createView();
@@ -299,12 +297,79 @@ function render(device, context, format) {
     const canvas = document.getElementById("gameCanvas");
     const tileSize = getTileSize(canvas);
 
-    renderTiles(passEncoder, device, canvas.width, canvas.height, tileSize); // Render all tiles.
-    renderObjects(passEncoder, device, canvas.width, canvas.height, tileSize); // Render all objects.
-    renderPlayer(passEncoder, device, tileSize); // Render the player.
+    const pipelineInfo = createTilePipeline(device);
+
+    // Prepare data for instanced rendering
+    const tileInstances = [];
+    gameState.tileMap.forEach((row, y) => {
+        row.forEach((tile, x) => {
+            let tileColor = tile === 1 ? CONSTANTS.COLORS.WALL_TILE
+                : tile === 2 ? { r: 0.0, g: 0.0, b: 1.0, a: 1.0 }
+                : tile === 3 ? { r: 1.0, g: 0.0, b: 0.0, a: 1.0 } // Assuming lava tile color
+                : CONSTANTS.COLORS.DEFAULT_TILE;
+
+            if (gameState.hoverTile && gameState.hoverTile.x === x && gameState.hoverTile.y === y) {
+                tileColor = CONSTANTS.COLORS.HOVER_TILE;
+            }
+
+            tileInstances.push({
+                offset: [x * tileSize, y * tileSize],
+                color: [tileColor.r, tileColor.g, tileColor.b, tileColor.a],
+            });
+        });
+    });
+
+    // Include objects
+    gameState.objects.forEach(({ x, y }) => {
+        const objColor = CONSTANTS.COLORS.OBJECT;
+        tileInstances.push({
+            offset: [x * tileSize, y * tileSize],
+            color: [objColor.r, objColor.g, objColor.b, objColor.a],
+        });
+    });
+
+    // Include player
+    const { x: playerX, y: playerY } = gameState.player;
+    const playerColor = CONSTANTS.COLORS.PLAYER;
+    tileInstances.push({
+        offset: [playerX * tileSize, playerY * tileSize],
+        color: [playerColor.r, playerColor.g, playerColor.b, playerColor.a],
+    });
+
+    // Create instance buffer
+    const instanceData = new Float32Array(tileInstances.length * (2 + 4)); // offset (vec2) + color (vec4)
+    tileInstances.forEach((instance, i) => {
+        const baseIndex = i * 6;
+        instanceData[baseIndex + 0] = instance.offset[0];
+        instanceData[baseIndex + 1] = instance.offset[1];
+        instanceData[baseIndex + 2] = instance.color[0];
+        instanceData[baseIndex + 3] = instance.color[1];
+        instanceData[baseIndex + 4] = instance.color[2];
+        instanceData[baseIndex + 5] = instance.color[3];
+    });
+
+    const instanceBuffer = device.createBuffer({
+        size: instanceData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        mappedAtCreation: true,
+    });
+
+    new Float32Array(instanceBuffer.getMappedRange()).set(instanceData);
+    instanceBuffer.unmap();
+
+    // Update uniform buffers
+    device.queue.writeBuffer(pipelineInfo.canvasSizeUniformBuffer, 0, new Float32Array([canvas.width, canvas.height]));
+    device.queue.writeBuffer(pipelineInfo.tileSizeUniformBuffer, 0, new Float32Array([tileSize]));
+
+    passEncoder.setPipeline(pipelineInfo.pipeline);
+    passEncoder.setBindGroup(0, pipelineInfo.bindGroup);
+    passEncoder.setVertexBuffer(0, pipelineInfo.vertexBuffer);
+    passEncoder.setVertexBuffer(1, instanceBuffer);
+
+    passEncoder.draw(4, tileInstances.length, 0, 0);
 
     passEncoder.end();
-    device.queue.submit([encoder.finish()]); // Submit rendering commands to the GPU.
+    device.queue.submit([encoder.finish()]);
 }
 
 // Renders all tiles on the canvas.
