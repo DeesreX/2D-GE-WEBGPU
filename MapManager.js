@@ -13,7 +13,7 @@ export default class MapManager {
 
     Init(){
         this.loadSavedMaps();
-        this.addMap('MAP_01', {
+        this.addMap('startMap', {
             tileMap: map_01,
             player: { x: 2, y: 2 },
             objects: []
